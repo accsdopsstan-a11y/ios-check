@@ -1,4 +1,4 @@
-const CACHE = "ios-check-v1";
+const CACHE = "ios-check-v2";
 const ASSETS = ["./", "manifest.webmanifest", "icons/180.png", "icons/192.png", "icons/512.png"];
 
 self.addEventListener("install", e => {
@@ -11,6 +11,14 @@ self.addEventListener("activate", e => {
 
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET" || !e.request.url.startsWith(self.location.origin)) return;
+  if (e.request.mode === "navigate") {
+    e.respondWith(fetch(e.request).then(res => {
+      const copy = res.clone();
+      caches.open(CACHE).then(c => c.put(e.request, copy));
+      return res;
+    }).catch(() => caches.match("./")));
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
       const copy = res.clone();
